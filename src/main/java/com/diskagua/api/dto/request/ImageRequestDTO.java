@@ -1,4 +1,4 @@
-package com.diskagua.api.dto;
+package com.diskagua.api.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -18,10 +18,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ImageDTO {
-
-    @JsonIgnore
-    private Long id;
+public class ImageRequestDTO {
 
     @NotEmpty
     @JsonProperty("nome")

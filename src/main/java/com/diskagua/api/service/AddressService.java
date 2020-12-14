@@ -1,10 +1,12 @@
 package com.diskagua.api.service;
 
-import com.diskagua.api.dto.AddressDTO;
+import com.diskagua.api.dto.request.AddressRequestDTO;
+import com.diskagua.api.dto.response.AddressResponseDTO;
 import com.diskagua.api.mapper.AddressMapper;
 import com.diskagua.api.models.Address;
+import com.diskagua.api.models.User;
 import com.diskagua.api.repository.AddressRepository;
-import com.diskagua.api.repository.CustomerRepository;
+import com.diskagua.api.repository.UserRepository;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -16,98 +18,63 @@ import org.springframework.stereotype.Service;
 @Service
 public class AddressService {
 
-    private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
     private final AddressRepository addressRepository;
     private final AddressMapper addressMapper = AddressMapper.INSTANCE;
 
-    /**
-     * Constrói um serviço, utilizando a injeção de dependências do Spring.
-     *
-     * @param customerRepository repositório que armazena os dados do cliente
-     * @param addressRepository repositório que armazena os dados dos endereços
-     */
     @Autowired
-    public AddressService(CustomerRepository customerRepository, AddressRepository addressRepository) {
-        this.customerRepository = customerRepository;
+    public AddressService(UserRepository userRepository, AddressRepository addressRepository) {
+        this.userRepository = userRepository;
         this.addressRepository = addressRepository;
     }
 
-    /**
-     * Converte um endereço do padrão DTO e salva-o no repositório de um
-     * determinado cliente.
-     *
-     * @param customerId identificador (id) do cliente
-     * @param addressDTO o endereço no padrão DTO
-     * @return um objeto {@link ResponseEntity} com o status da resposta e o
-     * endereço salvo em formato JSON
-     */
-    public ResponseEntity createAddressForCustomer(Long customerId, AddressDTO addressDTO) {
-        if (!verifyIfCustomerExistsById(customerId)) {
+    public ResponseEntity createUserAddress(Long userId, AddressRequestDTO addressDTO) {
+        Optional<User> foundUser = this.userRepository.findById(userId);
+
+        if (foundUser.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Address addressToSave = this.addressMapper.toModel(addressDTO);
-
-        Address savedAddress = this.customerRepository
-                .findById(customerId).map((customer) -> {
-            addressToSave.setCustomer(customer);
+        Address savedAddress = foundUser.map((user) -> {
+            addressToSave.setUser(user);
 
             return this.addressRepository.save(addressToSave);
-        }).get();
+        }).orElseThrow();
 
-        AddressDTO savedAddressDTO = this.addressMapper.toDTO(savedAddress);
-        URI location = URI.create("/api/v1/clientes" + savedAddress.getId());
+        AddressResponseDTO savedAddressDTO = this.addressMapper.toResponseDTO(savedAddress);
+        URI location = URI.create("/api/v1/usuarios/"
+                + savedAddress.getUser().getId()
+                + "/enderecos/"
+                + savedAddress.getId());
 
         return ResponseEntity.created(location).body(savedAddressDTO);
     }
 
-    /**
-     * Busca todos os endereços de uma determinado cliente salvos no
-     * repositório.
-     *
-     * @param customerId identificador (id) do cliente
-     * @return um objeto {@link ResponseEntity} com o status da resposta e a
-     * lista de endereços encontrados em formato JSON
-     */
-    public ResponseEntity listAllAddressesForCustomer(Long customerId) {
-        if (!verifyIfCustomerExistsById(customerId)) {
+    public ResponseEntity listAllUserAddresses(Long userId) {
+        if (!verifyIfUserExistsById(userId)) {
             return ResponseEntity.notFound().build();
         }
 
-        List<Address> allAddresses = this.addressRepository.listAllByCustomerId(customerId);
-        List<AddressDTO> allAddressesDTO = allAddresses.stream().map((address) -> {
-            return this.addressMapper.toDTO(address);
+        List<Address> allAddresses = this.addressRepository.listAllUserAddressesById(userId);
+        List<AddressResponseDTO> allAddressesDTO = allAddresses.stream().map((address) -> {
+            return this.addressMapper.toResponseDTO(address);
         }).collect(Collectors.toList());
 
         return ResponseEntity.ok(allAddressesDTO);
     }
 
-    /**
-     * Busca um endereço específico de um determinado cliente no repositório.
-     *
-     * @param customerId identificador (id) do cliente
-     * @param addressId identificador (id) do endereço
-     * @return um objeto {@link ResponseEntity} com o status da resposta e o
-     * endereço encontrado em formato JSON
-     */
-    public ResponseEntity findAddressForCustomerById(Long customerId, Long addressId) {
-        Optional<AddressDTO> foundAddressDTO = this.addressRepository
-                .findByIdAndCustomerId(addressId, customerId).map((address) -> {
-            return this.addressMapper.toDTO(address);
+    public ResponseEntity findUserAddressById(Long userId, Long addressId) {
+        Optional<AddressResponseDTO> foundAddressDTO = this.addressRepository
+                .findUserAddressById(userId, addressId).map((address) -> {
+            return this.addressMapper.toResponseDTO(address);
         });
 
         return ResponseEntity.of(foundAddressDTO);
     }
 
-    /**
-     * Deleta um endereço do repositório.
-     *
-     * @param customerId identificador (id) do cliente
-     * @param addressId identificador (id) do endereço
-     * @return um objeto {@link ResponseEntity} com o status da resposta
-     */
-    public ResponseEntity deleteAddressForCustomer(Long customerId, Long addressId) {
-        if (!verifyIfAddressExistsInCustomer(customerId, addressId)) {
+    public ResponseEntity deleteUserAddressById(Long userId, Long addressId) {
+        if (!verifyIfUserAddressExistsById(userId, addressId)) {
             return ResponseEntity.notFound().build();
         }
 
@@ -116,19 +83,10 @@ public class AddressService {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Atualiza um endereço no repositório.
-     *
-     * @param customerId identificador (id) do cliente
-     * @param addressId identificador (id) do endereço
-     * @param addressDTO o endereço atualizado no padrão DTO
-     * @return um objeto {@link ResponseEntity} com o status da resposta e o
-     * endereço atualizado em formato JSON
-     */
-    public ResponseEntity updateAddressForCustomer(Long customerId, Long addressId, AddressDTO addressDTO) {
+    public ResponseEntity updateUserAddressById(Long userId, Long addressId, AddressRequestDTO addressDTO) {
         Address addressToUpdate = this.addressMapper.toModel(addressDTO);
 
-        Optional<AddressDTO> updatedAddressDTO = this.addressRepository
+        Optional<AddressRequestDTO> updatedAddressDTO = this.addressRepository
                 .findById(addressId).map((foundAddress) -> {
             foundAddress.setCity(addressToUpdate.getCity());
             foundAddress.setComplement(addressToUpdate.getComplement());
@@ -139,7 +97,7 @@ public class AddressService {
             foundAddress.setStreet(addressToUpdate.getStreet());
 
             Address savedAddress = this.addressRepository.save(foundAddress);
-            AddressDTO savedAddressDTO = this.addressMapper.toDTO(savedAddress);
+            AddressRequestDTO savedAddressDTO = this.addressMapper.toRequestDTO(savedAddress);
 
             return savedAddressDTO;
         });
@@ -147,15 +105,11 @@ public class AddressService {
         return ResponseEntity.of(updatedAddressDTO);
     }
 
-    private boolean verifyIfCustomerExistsById(Long id) {
-        return this.customerRepository.existsById(id);
+    private boolean verifyIfUserExistsById(Long id) {
+        return this.userRepository.existsById(id);
     }
 
-    private boolean verifyIfAddressExistsInCustomer(Long customerId, Long addressId) {
-        if (verifyIfCustomerExistsById(customerId)) {
-            return this.addressRepository.existsById(addressId);
-        } else {
-            return false;
-        }
+    private boolean verifyIfUserAddressExistsById(Long userId, Long addressId) {
+        return this.addressRepository.findUserAddressById(userId, addressId).isPresent();
     }
 }
