@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UnauthorizedEntryPoint implements AuthenticationEntryPoint, Serializable {
-    
+
     @Override
     public void commence(HttpServletRequest req, HttpServletResponse res, AuthenticationException authException) throws IOException, ServletException {
-        res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+        res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Usuário sem permissão suficiente para acessar esse recurso");
     }
-    
+
 }

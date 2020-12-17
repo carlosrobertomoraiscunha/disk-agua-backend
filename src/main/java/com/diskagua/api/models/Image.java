@@ -15,12 +15,6 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-/**
- * Representa a entidade 'imagens' no banco de dados, e armazena todas as
- * informações das imagens utilizadas no sistema.
- *
- * @author Carlos
- */
 @Data
 @Builder
 @AllArgsConstructor

@@ -7,7 +7,7 @@ import com.diskagua.api.models.Product;
 import com.diskagua.api.models.User;
 import com.diskagua.api.repository.ProductRepository;
 import com.diskagua.api.repository.UserRepository;
-import java.net.URI;
+import com.diskagua.api.util.TokenUtils;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -28,84 +28,131 @@ public class ProductService {
         this.productRepository = productRepository;
     }
 
-    public ResponseEntity createUserProduct(Long userId, ProductRequestDTO productDTO) {
-        Optional<User> foundUser = this.userRepository.findById(userId);
+    public ResponseEntity createProduct(String authorizationToken, ProductRequestDTO productDTO) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
+            Optional<User> foundUser = this.userRepository.findUserByEmail(email);
 
-        if (foundUser.isEmpty()) {
+            if (foundUser.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Product productToSave = this.productMapper.toModel(productDTO);
+            Product savedProduct = foundUser.map((user) -> {
+                productToSave.setUser(user);
+
+                return this.productRepository.save(productToSave);
+            }).orElseThrow();
+
+            ProductResponseDTO savedProductDTO = this.productMapper.toResponseDTO(savedProduct);
+
+            return ResponseEntity.ok(savedProductDTO);
+        } catch (Exception ex) {
             return ResponseEntity.notFound().build();
         }
-
-        Product productToSave = this.productMapper.toModel(productDTO);
-        Product savedProduct = foundUser.map((user) -> {
-            productToSave.setUser(user);
-
-            return this.productRepository.save(productToSave);
-        }).orElseThrow();
-
-        ProductResponseDTO savedProductDTO = this.productMapper.toResponseDTO(savedProduct);
-        URI location = URI.create("/api/v1/usuarios/"
-                + savedProduct.getUser().getId()
-                + "/enderecos/"
-                + savedProduct.getId());
-
-        return ResponseEntity.created(location).body(savedProductDTO);
     }
 
-    public ResponseEntity listAllUserProducts(Long userId) {
-        if (!verifyIfUserExistsById(userId)) {
+    public ResponseEntity listAllVendorProducts(String authorizationToken) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
+
+            if (!verifyIfUserExistsByEmail(email)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            User user = this.userRepository.findUserByEmail(email).get();
+            List<Product> allProducts = this.productRepository.listAllUserProductsById(user.getId());
+            List<ProductResponseDTO> allProductsDTO = allProducts.stream().map((product) -> {
+                return this.productMapper.toResponseDTO(product);
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(allProductsDTO);
+        } catch (Exception ex) {
             return ResponseEntity.notFound().build();
         }
-
-        List<Product> allProducts = this.productRepository.listAllUserProductsById(userId);
-        List<ProductResponseDTO> allProductsDTO = allProducts.stream().map((product) -> {
-            return this.productMapper.toResponseDTO(product);
-        }).collect(Collectors.toList());
-
-        return ResponseEntity.ok(allProductsDTO);
     }
 
-    public ResponseEntity findUserProductById(Long userId, Long productId) {
-        Optional<ProductResponseDTO> foundProductDTO = this.productRepository
-                .findUserProductById(userId, productId).map((address) -> {
-            return this.productMapper.toResponseDTO(address);
-        });
+    public ResponseEntity findVendorProductById(String authorizationToken, Long productId) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
 
-        return ResponseEntity.of(foundProductDTO);
-    }
+            if (!verifyIfUserExistsByEmail(email)) {
+                return ResponseEntity.notFound().build();
+            }
 
-    public ResponseEntity deleteUserProductById(Long userId, Long productId) {
-        if (!verifyIfUserProductExistsById(userId, productId)) {
+            User user = this.userRepository.findUserByEmail(email).get();
+            Optional<ProductResponseDTO> foundProductDTO = this.productRepository
+                    .findUserProductById(user.getId(), productId).map((address) -> {
+                return this.productMapper.toResponseDTO(address);
+            });
+
+            return ResponseEntity.of(foundProductDTO);
+        } catch (Exception ex) {
             return ResponseEntity.notFound().build();
         }
-
-        this.productRepository.deleteById(productId);
-
-        return ResponseEntity.noContent().build();
     }
 
-    public ResponseEntity updateUserProductById(Long userId, Long productId, ProductRequestDTO productDTO) {
-        Product productToUpdate = this.productMapper.toModel(productDTO);
+    public ResponseEntity deleteVendorProductById(String authorizationToken, Long productId) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
 
-        Optional<ProductRequestDTO> updatedProductDTO = this.productRepository
-                .findById(productId).map((foundProduct) -> {
-            foundProduct.getImage().setName(productToUpdate.getImage().getName());
-            foundProduct.getImage().setContent(productToUpdate.getImage().getContent());
-            foundProduct.getImage().setType(productToUpdate.getImage().getType());
-            foundProduct.setName(productToUpdate.getName());
-            foundProduct.setPrice(productToUpdate.getPrice());
-            foundProduct.setDescription(productToUpdate.getDescription());
+            if (!verifyIfUserExistsByEmail(email)) {
+                return ResponseEntity.notFound().build();
+            }
 
-            Product savedProduct = this.productRepository.save(foundProduct);
-            ProductRequestDTO savedProductDTO = this.productMapper.toRequestDTO(savedProduct);
+            User user = this.userRepository.findUserByEmail(email).get();
 
-            return savedProductDTO;
-        });
+            if (!verifyIfUserProductExistsById(user.getId(), productId)) {
+                return ResponseEntity.notFound().build();
+            }
 
-        return ResponseEntity.of(updatedProductDTO);
+            this.productRepository.deleteById(productId);
+
+            return ResponseEntity.noContent().build();
+        } catch (Exception ex) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    private boolean verifyIfUserExistsById(Long id) {
-        return this.userRepository.existsById(id);
+    public ResponseEntity updateVendorProductById(String authorizationToken, Long productId, ProductRequestDTO productDTO) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
+
+            if (!verifyIfUserExistsByEmail(email)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            User user = this.userRepository.findUserByEmail(email).get();
+
+            if (!verifyIfUserProductExistsById(user.getId(), productId)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Product productToUpdate = this.productMapper.toModel(productDTO);
+
+            Optional<ProductRequestDTO> updatedProductDTO = this.productRepository
+                    .findById(productId).map((foundProduct) -> {
+                foundProduct.getImage().setName(productToUpdate.getImage().getName());
+                foundProduct.getImage().setContent(productToUpdate.getImage().getContent());
+                foundProduct.getImage().setType(productToUpdate.getImage().getType());
+                foundProduct.setName(productToUpdate.getName());
+                foundProduct.setPrice(productToUpdate.getPrice());
+                foundProduct.setDescription(productToUpdate.getDescription());
+
+                Product savedProduct = this.productRepository.save(foundProduct);
+                ProductRequestDTO savedProductDTO = this.productMapper.toRequestDTO(savedProduct);
+
+                return savedProductDTO;
+            });
+
+            return ResponseEntity.of(updatedProductDTO);
+        } catch (Exception ex) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    private boolean verifyIfUserExistsByEmail(String email) {
+        return this.userRepository.existsUserByEmail(email);
     }
 
     private boolean verifyIfUserProductExistsById(Long userId, Long productId) {

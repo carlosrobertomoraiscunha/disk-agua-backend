@@ -1,36 +1,34 @@
 package com.diskagua.api.models;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.io.Serializable;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
+import javax.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public enum Role {
-    CUSTOMER("cliente"), VENDOR("vendedor");
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name = "cargos")
+@NamedQueries(value = {
+    @NamedQuery(name = "Role.findRoleByName", query = "SELECT r FROM Role r WHERE r.name = :name")
+})
+public class Role implements Serializable {
 
-    private final String value;
-    private static final Map<String, Role> roleMap = new HashMap<>();
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    static {
-        for (Role role : Role.values()) {
-            roleMap.put(role.value, role);
-        }
-    }
-
-    private Role(final String value) {
-        this.value = value;
-    }
-
-    public static Role getRoleByValue(String value) {
-        Role role = roleMap.get(value);
-
-        if (role == null) {
-            throw new IllegalArgumentException("Esse cargo de usuário não existe");
-        } else {
-            return role;
-        }
-    }
-
-    public String getValue() {
-        return value;
-    }
-
+    @Column(nullable = false, name = "nome")
+    private String name;
 }

@@ -1,11 +1,13 @@
 package com.diskagua.api.util;
 
-import com.diskagua.api.models.Role;
-
 public class UrlConstants {
 
     public final static String USER_URL = "/api/v1/usuarios";
-    public final static String CUSTOMER_REGISTRATION_URL = USER_URL + "/" + Role.CUSTOMER.getValue();
-    public final static String VENDOR_REGISTRATION_URL = USER_URL + "/" + Role.VENDOR.getValue();
-    public final static String USER_LOGIN_URL = "/api/v1/usuarios/auth";
+    public final static String USER_CUSTOMER_URL = USER_URL + "/clientes";
+    public final static String USER_VENDOR_URL = USER_URL + "/vendedores";
+    public final static String USER_ADMIN_URL = USER_URL + "/admin";
+    public final static String USER_LOGIN_URL = USER_URL + "/login";
+    public final static String VENDOR_PRODUCT_URL = USER_VENDOR_URL + "/produtos";
+    public final static String USER_ADDRESS_URL = USER_URL + "/enderecos";
+
 }

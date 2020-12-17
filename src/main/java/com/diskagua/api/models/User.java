@@ -5,13 +5,12 @@ import java.time.LocalDateTime;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.OneToOne;
@@ -31,7 +30,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Table(name = "usuarios")
 @NamedQueries(value = {
     @NamedQuery(name = "Boolean.existsUserByEmail", query = "SELECT u FROM User u WHERE u.email = :email"),
-    @NamedQuery(name = "User.findByEmail", query = "SELECT u FROM User u WHERE u.email = :email")
+    @NamedQuery(name = "User.findUserByEmail", query = "SELECT u FROM User u WHERE u.email = :email"),
+    @NamedQuery(name = "Void.deleteUserByEmail", query = "DELETE FROM User u WHERE u.email = :email")
 })
 public class User implements Serializable {
 
@@ -55,9 +55,9 @@ public class User implements Serializable {
     @Column(nullable = false, name = "telefone")
     private String phoneNumber;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, name = "cargo")
-    private Role userRole;
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE})
+    @JoinColumn(name = "cargo_id")
+    private Role role;
 
     @CreationTimestamp
     @Column(name = "created_at")

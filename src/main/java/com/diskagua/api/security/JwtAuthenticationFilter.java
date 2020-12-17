@@ -38,11 +38,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             try {
                 username = jwtTokenUtil.getUsernameFromToken(authToken);
-            } catch (IllegalArgumentException e) {
-                logger.error("Um erro ocorreu na criação do token", e);
-            } catch (ExpiredJwtException e) {
-                logger.warn("O token expirou", e);
-            } catch (SignatureException e) {
+            } catch (IllegalArgumentException ex) {
+                logger.error("Um erro ocorreu na criação do token");
+            } catch (ExpiredJwtException ex) {
+                logger.warn("O token expirou");
+            } catch (SignatureException ex) {
                 logger.error("Email ou senha inválidas");
             }
         } else {

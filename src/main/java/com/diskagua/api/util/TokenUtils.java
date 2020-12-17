@@ -1,5 +1,6 @@
 package com.diskagua.api.util;
 
+import com.diskagua.api.security.JwtAuthenticationFilter;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtParser;
@@ -80,5 +81,29 @@ public class TokenUtils implements Serializable {
                         .collect(Collectors.toList());
 
         return new UsernamePasswordAuthenticationToken(userDetails, "", authorities);
+    }
+
+    public static String getEmailFromToken(String authorizationToken) {
+        String token = authorizationToken;
+        TokenUtils tokenUtils = new TokenUtils();
+
+        if (authorizationToken.startsWith(JwtAuthenticationFilter.TOKEN_PREFIX)) {
+            token = token.split(" ")[1];
+        }
+
+        return tokenUtils.getUsernameFromToken(token);
+    }
+
+    public static String getRoleFromToken(String authorizationToken) {
+        String token = authorizationToken;
+        TokenUtils tokenUtils = new TokenUtils();
+
+        if (authorizationToken.startsWith(JwtAuthenticationFilter.TOKEN_PREFIX)) {
+            token = token.split(" ")[1];
+        }
+
+        return (String) tokenUtils.getClaimFromToken(token, (claim) -> {
+            return claim.get("roles");
+        });
     }
 }

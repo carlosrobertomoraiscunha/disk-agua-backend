@@ -8,9 +8,8 @@ import com.diskagua.api.dto.response.UserResponseDTO;
 import com.diskagua.api.models.Role;
 import com.diskagua.api.mapper.UserMapper;
 import com.diskagua.api.models.User;
+import com.diskagua.api.repository.RoleRepository;
 import com.diskagua.api.util.TokenUtils;
-import com.diskagua.api.util.UrlConstants;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -31,11 +30,13 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final UserMapper userMapper = UserMapper.INSTANCE;
     private final AuthenticationManager authenticationManager;
@@ -43,36 +44,45 @@ public class UserService implements UserDetailsService {
 
     @Autowired
     public UserService(UserRepository userRepository,
+            RoleRepository roleRepository,
             BCryptPasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             TokenUtils jwtTokenUtil) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenUtil = jwtTokenUtil;
     }
 
-    public ResponseEntity register(Role userRole, UserRequestDTO userDTO) {
+    public ResponseEntity register(String userRole, UserRequestDTO userDTO) {
         if (verifyIfUserExistsByEmail(userDTO.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body("O email informado já existe");
         }
 
         User userToSave = this.userMapper.toModel(userDTO);
+        Optional<Role> role = this.roleRepository.findRoleByName(userRole);
 
-        userToSave.setUserRole(userRole);
-        userToSave.setPassword(passwordEncoder.encode(userToSave.getPassword()));
+        if (role.isEmpty()) {
+            Role savedRole = this.roleRepository.save(new Role(null, userRole));
+
+            userToSave.setRole(savedRole);
+        } else {
+            userToSave.setRole(role.get());
+        }
+
+        userToSave.setPassword(this.passwordEncoder.encode(userToSave.getPassword()));
 
         User userSaved = this.userRepository.save(userToSave);
         UserResponseDTO userSavedDTO = this.userMapper.toResponseDTO(userSaved);
-        URI location = URI.create(UrlConstants.USER_URL + "/" + userSaved.getId());
 
-        return ResponseEntity.created(location).body(userSavedDTO);
+        return ResponseEntity.ok(userSavedDTO);
     }
 
     public ResponseEntity login(LoginUserRequestDTO loginDTO) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
+            Authentication authentication = this.authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginDTO.getEmail(),
                             loginDTO.getPassword())
@@ -80,8 +90,12 @@ public class UserService implements UserDetailsService {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String token = jwtTokenUtil.generateToken(authentication);
+            Optional<UserResponseDTO> foundUserDTO = this.userRepository
+                    .findUserByEmail(loginDTO.getEmail()).map((user) -> {
+                return this.userMapper.toResponseDTO(user);
+            });
 
-            return ResponseEntity.ok(new LoginUserResponseDTO(token));
+            return ResponseEntity.ok(new LoginUserResponseDTO(token, foundUserDTO.get()));
         } catch (AuthenticationException ex) {
             return new ResponseEntity(ex.getMessage(), HttpStatus.UNAUTHORIZED);
         }
@@ -89,14 +103,14 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = this.userRepository.findByEmail(username).orElseThrow(() -> {
-            throw new UsernameNotFoundException("Email ou senha inválidos");
+        User user = this.userRepository.findUserByEmail(username).orElseThrow(() -> {
+            throw new UsernameNotFoundException("Usuário não encontrado");
         });
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
-                getAuthority(user.getUserRole()));
+                getAuthorities(user.getRole()));
     }
 
     public ResponseEntity listAllUsers() {
@@ -117,51 +131,78 @@ public class UserService implements UserDetailsService {
         return ResponseEntity.of(foundUserDTO);
     }
 
-    public ResponseEntity deleteUserById(Long id) {
-        if (!verifyIfUserExistsById(id)) {
+    public ResponseEntity findUserByToken(String authorizationToken) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
+
+            Optional<UserResponseDTO> foundUserDTO = this.userRepository
+                    .findUserByEmail(email).map((user) -> {
+                return this.userMapper.toResponseDTO(user);
+            });
+
+            return ResponseEntity.of(foundUserDTO);
+        } catch (Exception ex) {
             return ResponseEntity.notFound().build();
         }
-
-        this.userRepository.deleteById(id);
-
-        return ResponseEntity.noContent().build();
     }
 
-    public ResponseEntity updateUserById(Long id, UserRequestDTO userDTO) {
-        User userToUpdate = this.userMapper.toModel(userDTO);
+    @Transactional
+    public ResponseEntity deleteUserByToken(String authorizationToken) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
 
-        Optional<UserResponseDTO> updatedUserDTO = this.userRepository
-                .findById(id).map((foundUser) -> {
-            foundUser.setEmail(userToUpdate.getEmail());
-            foundUser.setPassword(userToUpdate.getPassword());
-            foundUser.getImage().setName(userToUpdate.getImage().getName());
-            foundUser.getImage().setContent(userToUpdate.getImage().getContent());
-            foundUser.getImage().setType(userToUpdate.getImage().getType());
-            foundUser.setName(userToUpdate.getName());
-            foundUser.setPhoneNumber(userToUpdate.getPhoneNumber());
+            if (!verifyIfUserExistsByEmail(email)) {
+                return ResponseEntity.notFound().build();
+            }
 
-            User savedUser = this.userRepository.save(foundUser);
-            UserResponseDTO savedUserDTO = this.userMapper.toResponseDTO(savedUser);
+            this.userRepository.deleteUserByEmail(email);
 
-            return savedUserDTO;
-        });
-
-        return ResponseEntity.of(updatedUserDTO);
+            return ResponseEntity.noContent().build();
+        } catch (Exception ex) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    private boolean verifyIfUserExistsById(Long id) {
-        return this.userRepository.existsById(id);
+    public ResponseEntity updateUserByToken(String authorizationToken, UserRequestDTO userDTO) {
+        try {
+            String email = TokenUtils.getEmailFromToken(authorizationToken);
+            User userToUpdate = this.userMapper.toModel(userDTO);
+
+            if (verifyIfUserExistsByEmail(userToUpdate.getEmail()) && !email.equals(userToUpdate.getEmail())) {
+                return ResponseEntity.badRequest().body("Esse email já está sendo utilizado");
+            }
+
+            Optional<UserResponseDTO> updatedUserDTO = this.userRepository
+                    .findUserByEmail(email).map((foundUser) -> {
+                foundUser.setEmail(userToUpdate.getEmail());
+                foundUser.setPassword(passwordEncoder.encode(userToUpdate.getPassword()));
+                foundUser.getImage().setName(userToUpdate.getImage().getName());
+                foundUser.getImage().setContent(userToUpdate.getImage().getContent());
+                foundUser.getImage().setType(userToUpdate.getImage().getType());
+                foundUser.setName(userToUpdate.getName());
+                foundUser.setPhoneNumber(userToUpdate.getPhoneNumber());
+
+                User savedUser = this.userRepository.save(foundUser);
+                UserResponseDTO savedUserDTO = this.userMapper.toResponseDTO(savedUser);
+
+                return savedUserDTO;
+            });
+
+            return ResponseEntity.of(updatedUserDTO);
+        } catch (Exception ex) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     private boolean verifyIfUserExistsByEmail(String email) {
         return this.userRepository.existsUserByEmail(email);
     }
 
-    private Collection<? extends GrantedAuthority> getAuthority(Role role) {
-        List<GrantedAuthority> grantedAuthoritys = new ArrayList<>();
+    private Collection<? extends GrantedAuthority> getAuthorities(Role role) {
+        List<GrantedAuthority> grantedAuthorities = new ArrayList<>();
 
-        grantedAuthoritys.add(new SimpleGrantedAuthority(role.name()));
+        grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName()));
 
-        return grantedAuthoritys;
+        return grantedAuthorities;
     }
 }
