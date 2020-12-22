@@ -7,7 +7,8 @@ public class UrlConstants {
     public final static String USER_VENDOR_URL = USER_URL + "/vendedores";
     public final static String USER_ADMIN_URL = USER_URL + "/admin";
     public final static String USER_LOGIN_URL = USER_URL + "/login";
-    public final static String VENDOR_PRODUCT_URL = USER_VENDOR_URL + "/produtos";
     public final static String USER_ADDRESS_URL = USER_URL + "/enderecos";
+    public final static String VENDOR_PRODUCT_URL = USER_VENDOR_URL + "/produtos";
+    public final static String CUSTOMER_ORDER_URL = USER_CUSTOMER_URL + "/pedidos";
 
 }

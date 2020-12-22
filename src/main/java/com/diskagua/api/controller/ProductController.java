@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@PreAuthorize("hasAnyRole('ROLE_VENDEDOR', 'ROLE_ADMIN')")
 @RestController
 @RequestMapping(UrlConstants.VENDOR_PRODUCT_URL)
 public class ProductController {
@@ -29,26 +28,37 @@ public class ProductController {
         this.productService = productService;
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_VENDEDOR', 'ROLE_ADMIN')")
     @PostMapping
     public ResponseEntity createProduct(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken, @RequestBody ProductRequestDTO productDTO) {
         return this.productService.createProduct(authorizationToken, productDTO);
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_CLIENTE','ROLE_VENDEDOR' ,'ROLE_ADMIN')")
+    @GetMapping(path = "/todos")
+    public ResponseEntity listAllProducts() {
+        return this.productService.listAllProducts();
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_VENDEDOR', 'ROLE_ADMIN')")
     @GetMapping
     public ResponseEntity listAllVendorProducts(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken) {
         return this.productService.listAllVendorProducts(authorizationToken);
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_VENDEDOR', 'ROLE_ADMIN')")
     @GetMapping(path = "/{productId}")
     public ResponseEntity findVendorProductById(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken, @PathVariable Long productId) {
         return this.productService.findVendorProductById(authorizationToken, productId);
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_VENDEDOR', 'ROLE_ADMIN')")
     @DeleteMapping(path = "/{productId}")
     public ResponseEntity deleteVendorProductById(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken, @PathVariable Long productId) {
         return this.productService.deleteVendorProductById(authorizationToken, productId);
     }
 
+    @PreAuthorize("hasAnyRole('ROLE_VENDEDOR', 'ROLE_ADMIN')")
     @PutMapping(path = "/{productId}")
     public ResponseEntity updateVendorProductById(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken, @PathVariable Long productId, @RequestBody ProductRequestDTO productDTO) {
         return this.productService.updateVendorProductById(authorizationToken, productId, productDTO);

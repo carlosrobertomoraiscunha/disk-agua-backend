@@ -8,6 +8,7 @@ import com.diskagua.api.models.User;
 import com.diskagua.api.repository.ProductRepository;
 import com.diskagua.api.repository.UserRepository;
 import com.diskagua.api.util.TokenUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,6 +51,17 @@ public class ProductService {
         } catch (Exception ex) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    public ResponseEntity listAllProducts() {
+        List<Product> products = this.productRepository.findAll();
+        List<ProductResponseDTO> productsResponseDTO = new ArrayList<>();
+
+        products.forEach(product -> {
+            productsResponseDTO.add(this.productMapper.toResponseDTO(product));
+        });
+
+        return ResponseEntity.ok(productsResponseDTO);
     }
 
     public ResponseEntity listAllVendorProducts(String authorizationToken) {

@@ -1,6 +1,7 @@
 package com.diskagua.api.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,19 +11,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserResponseDTO {
+public class OrderResponseDTO {
 
     private Long id;
 
-    @JsonProperty("email")
-    private String email;
-
-    @JsonProperty("imagem")
-    private ImageResponseDTO image;
-
-    @JsonProperty("nome")
-    private String name;
-
-    @JsonProperty("telefone")
-    private String phoneNumber;
+    @JsonProperty("produtos")
+    private List<ProductResponseDTO> products;
 }

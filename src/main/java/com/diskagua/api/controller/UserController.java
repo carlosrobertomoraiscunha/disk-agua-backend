@@ -1,5 +1,6 @@
 package com.diskagua.api.controller;
 
+import com.diskagua.api.dto.request.CheckOutRequestDTO;
 import com.diskagua.api.dto.request.LoginUserRequestDTO;
 import com.diskagua.api.dto.request.UserRequestDTO;
 import com.diskagua.api.security.JwtAuthenticationFilter;
@@ -72,5 +73,17 @@ public class UserController {
     @PutMapping(path = UrlConstants.USER_URL)
     public ResponseEntity updateUserByToken(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken, @RequestBody @Valid UserRequestDTO userDTO) {
         return this.userService.updateUserByToken(authorizationToken, userDTO);
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_CLIENTE')")
+    @GetMapping(path = UrlConstants.CUSTOMER_ORDER_URL + "/{id}")
+    public ResponseEntity addProductToOrder(@PathVariable Long id, @RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken) {
+        return this.userService.addProductToOrder(authorizationToken, id);
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_CLIENTE')")
+    @PostMapping(path = UrlConstants.CUSTOMER_ORDER_URL)
+    public ResponseEntity checkOut(@RequestHeader(JwtAuthenticationFilter.HEADER_STRING) String authorizationToken, @RequestBody @Valid CheckOutRequestDTO checkOutRequestDTO) {
+        return this.userService.checkOut(authorizationToken, checkOutRequestDTO);
     }
 }

@@ -2,6 +2,7 @@ package com.diskagua.api.models;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -19,6 +20,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Data
 @Builder
@@ -52,4 +55,12 @@ public class Product implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private User user;
+
+    @CreationTimestamp
+    @Column(name = "created_at")
+    private LocalDateTime createDateTime;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updateDateTime;
 }

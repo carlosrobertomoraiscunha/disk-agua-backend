@@ -19,9 +19,9 @@ public class DiskAguaApplication {
 
     @PostConstruct
     public void init() {
-        this.roleRepository.save(new Role(null, "ADMIN"));
-        this.roleRepository.save(new Role(null, "CLIENTE"));
-        this.roleRepository.save(new Role(null, "VENDEDOR"));
+        this.roleRepository.save(Role.builder().name("ADMIN").build());
+        this.roleRepository.save(Role.builder().name("CLIENTE").build());
+        this.roleRepository.save(Role.builder().name("VENDEDOR").build());
     }
 
 }

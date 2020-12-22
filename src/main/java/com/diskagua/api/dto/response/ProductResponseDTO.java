@@ -1,7 +1,6 @@
 package com.diskagua.api.dto.response;
 
 import com.diskagua.api.dto.request.ImageRequestDTO;
-import com.diskagua.api.models.User;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;

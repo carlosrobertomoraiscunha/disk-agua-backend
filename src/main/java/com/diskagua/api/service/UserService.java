@@ -1,15 +1,24 @@
 package com.diskagua.api.service;
 
+import com.diskagua.api.dto.request.CheckOutRequestDTO;
 import com.diskagua.api.dto.request.LoginUserRequestDTO;
 import com.diskagua.api.repository.UserRepository;
 import com.diskagua.api.dto.request.UserRequestDTO;
 import com.diskagua.api.dto.response.LoginUserResponseDTO;
+import com.diskagua.api.dto.response.OrderResponseDTO;
 import com.diskagua.api.dto.response.UserResponseDTO;
+import com.diskagua.api.mapper.OrderMapper;
 import com.diskagua.api.models.Role;
 import com.diskagua.api.mapper.UserMapper;
+import com.diskagua.api.models.OrderEntity;
+import com.diskagua.api.models.OrderStatus;
+import com.diskagua.api.models.Product;
 import com.diskagua.api.models.User;
+import com.diskagua.api.repository.OrderRepository;
+import com.diskagua.api.repository.ProductRepository;
 import com.diskagua.api.repository.RoleRepository;
 import com.diskagua.api.util.TokenUtils;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -37,19 +46,26 @@ public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final UserMapper userMapper = UserMapper.INSTANCE;
+    private final OrderMapper orderMapper = OrderMapper.INSTANCE;
     private final AuthenticationManager authenticationManager;
     private final TokenUtils jwtTokenUtil;
 
     @Autowired
     public UserService(UserRepository userRepository,
             RoleRepository roleRepository,
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
             BCryptPasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
             TokenUtils jwtTokenUtil) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenUtil = jwtTokenUtil;
@@ -192,6 +208,84 @@ public class UserService implements UserDetailsService {
         } catch (Exception ex) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    public ResponseEntity addProductToOrder(String authorizationToken, Long id) {
+        String email = TokenUtils.getEmailFromToken(authorizationToken);
+
+        if (!verifyIfUserExistsByEmail(email)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        User user = this.userRepository.findUserByEmail(email).get();
+        Optional<Product> product = this.productRepository.findById(id);
+
+        if (product.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<OrderEntity> orderList = this.orderRepository.listOrdersByCustomerId(user.getId());
+        OrderEntity order;
+
+        if (orderList.isEmpty()) {
+            order = this.orderRepository.save(OrderEntity
+                    .builder()
+                    .customer(user)
+                    .build());
+        } else {
+            order = orderList.stream().filter((orderItem) -> {
+                return orderItem.getStatus() == OrderStatus.ABERTO;
+            }).findFirst().orElse(null);
+        }
+
+        if (order == null) {
+            order = this.orderRepository.save(OrderEntity
+                    .builder()
+                    .customer(user)
+                    .build());
+        }
+
+        order.getProducts().add(product.get());
+        BigDecimal totalPrice = order.getTotalPrice().add(product.get().getPrice());
+        order.setTotalPrice(totalPrice);
+        this.orderRepository.save(order);
+
+        OrderResponseDTO orderDTO = this.orderMapper.toResponseDTO(order);
+
+        return ResponseEntity.ok(orderDTO);
+    }
+
+    public ResponseEntity checkOut(String authorizationToken, CheckOutRequestDTO checkOutRequestDTO) {
+        String email = TokenUtils.getEmailFromToken(authorizationToken);
+
+        if (!verifyIfUserExistsByEmail(email)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        User user = this.userRepository.findUserByEmail(email).get();
+        List<OrderEntity> orderList = this.orderRepository.listOrdersByCustomerId(user.getId());
+
+        OrderEntity order;
+
+        if (orderList.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        } else {
+            order = orderList.stream().filter((orderItem) -> {
+                return orderItem.getStatus() == OrderStatus.ABERTO;
+            }).findFirst().orElse(null);
+        }
+
+        if (order == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        order.setStatus(OrderStatus.FEITO);
+
+        this.orderRepository.save(order);
+
+        OrderResponseDTO orderDTO = this.orderMapper.toResponseDTO(order);
+
+        return ResponseEntity.ok(orderDTO);
     }
 
     private boolean verifyIfUserExistsByEmail(String email) {
